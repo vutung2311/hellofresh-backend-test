@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"vutung2311-golang-test/internal/router"
+	"vutung2311-golang-test/pkg/router"
 )
 
 func TestRouter_New(t *testing.T) {

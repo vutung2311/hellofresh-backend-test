@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"vutung2311-golang-test/internal/router/middleware"
+	"vutung2311-golang-test/pkg/router/middleware"
 
 	"github.com/sirupsen/logrus"
 )
