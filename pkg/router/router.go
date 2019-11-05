@@ -8,7 +8,7 @@ type Router struct {
 	mux *http.ServeMux
 }
 
-func New(middlewareList []func(next http.Handler) http.Handler) *Router {
+func New(middlewareList ...func(next http.Handler) http.Handler) *Router {
 	return &Router{
 		middlewareList: middlewareList,
 		mux:            http.NewServeMux(),

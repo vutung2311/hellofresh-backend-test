@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultPerPage  = 25
+	defaultPerPage  = 5
 	pageQueryKey    = "page"
 	perPageQueryKey = "perPage"
 )
@@ -51,7 +51,7 @@ func CreateRecipeGetHandler(recipeRepo *repository.RecipeRepository) http.Handle
 		}
 
 		requestRecipeIDs := make([]string, 0)
-		for i := (page-1)*perPage + 1; i < page*perPage; i++ {
+		for i := (page-1)*perPage + 1; i <= page*perPage; i++ {
 			requestRecipeIDs = append(requestRecipeIDs, strconv.Itoa(i))
 		}
 
@@ -61,26 +61,44 @@ func CreateRecipeGetHandler(recipeRepo *repository.RecipeRepository) http.Handle
 			return
 		}
 
-		nextURL := url.URL{}
-		nextURL.Host = r.URL.Host
+		nextURL := new(url.URL)
+		if r.TLS == nil {
+			nextURL.Scheme = "http"
+		} else {
+			nextURL.Scheme = "https"
+		}
+		nextURL.Host = r.Host
 		nextURL.Path = r.URL.Path
-		nextURL.Query().Set(pageQueryKey, strconv.Itoa(page+1))
-		nextURL.Query().Set(perPageQueryKey, strconv.Itoa(perPage))
-		prevURL := url.URL{}
-		prevURL.Host = r.URL.Host
-		prevURL.Path = r.URL.Path
-		prevURL.Query().Set(pageQueryKey, strconv.Itoa(page-1))
-		prevURL.Query().Set(perPageQueryKey, strconv.Itoa(perPage))
+		nextURLQuery := nextURL.Query()
+		nextURLQuery.Set(pageQueryKey, strconv.Itoa(page+1))
+		nextURLQuery.Set(perPageQueryKey, strconv.Itoa(perPage))
+		nextURL.RawQuery = nextURLQuery.Encode()
 
-		err = json.NewEncoder(w).Encode(
-			RecipeResponse{
-				Data: recipes,
-				Pagination: Pagination{
-					PrevLink: prevURL.String(),
-					NextLink: nextURL.String(),
-				},
+		prevURL := new(url.URL)
+		if r.TLS == nil {
+			prevURL.Scheme = "http"
+		} else {
+			prevURL.Scheme = "https"
+		}
+		prevURL.Host = r.Host
+		prevURL.Path = r.URL.Path
+		prevURLQuery := prevURL.Query()
+		prevURLQuery.Set(pageQueryKey, strconv.Itoa(page-1))
+		prevURLQuery.Set(perPageQueryKey, strconv.Itoa(perPage))
+		prevURL.RawQuery = prevURLQuery.Encode()
+
+		recipeResponse := RecipeResponse{
+			Data: recipes,
+			Pagination: Pagination{
+				NextLink: nextURL.String(),
 			},
-		)
+		}
+		if page > 1 {
+			recipeResponse.Pagination.PrevLink = prevURL.String()
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(recipeResponse)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
