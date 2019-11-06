@@ -8,6 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var ErrAllWorkerAreBusy = errors.New("all worker is busy")
+
 type Pool struct {
 	maxWorkerCount    int64
 	activeWorkerCount int64
@@ -43,7 +45,7 @@ func (p *Pool) AddJob(ctx context.Context, fn func() error) error {
 		worker.jobChan <- workerJob
 	default:
 		if atomic.LoadInt64(&p.activeWorkerCount) >= p.maxWorkerCount {
-			return errors.New("all worker is busy")
+			return ErrAllWorkerAreBusy
 		}
 		worker := &worker{
 			parentPool: p,

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"vutung2311-golang-test/internal/model"
+	"vutung2311-golang-test/pkg/worker"
 )
 
 var ErrRecordNotFound = errors.New("record not fund")
@@ -65,23 +66,28 @@ func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]*mod
 	fetchingChan := make(chan RecipeFetch, len(ids))
 	for i := range ids {
 		id := ids[i]
-		err := r.pool.AddJob(cancelCtx, func() error {
-			defer wg.Done()
+		var err error
+		for {
+			err = r.pool.AddJob(cancelCtx, func() error {
+				defer wg.Done()
 
-			recipe, err := r.FindByID(cancelCtx, id)
-			if err != nil && !errors.Is(err, ErrRecordNotFound) {
-				cancelFunc()
-				fetchingChan <- RecipeFetch{recipe: nil, err: err}
+				recipe, err := r.FindByID(cancelCtx, id)
+				if err != nil && !errors.Is(err, ErrRecordNotFound) {
+					cancelFunc()
+					fetchingChan <- RecipeFetch{recipe: nil, err: err}
+					return nil
+				}
+				if errors.Is(err, ErrRecordNotFound) {
+					return fmt.Errorf("record in URL %s is not found", r.baseUrl+id)
+				}
+				fetchingChan <- RecipeFetch{recipe: recipe, err: nil}
 				return nil
+			})
+			if err != worker.ErrAllWorkerAreBusy {
+				break
 			}
-			if errors.Is(err, ErrRecordNotFound) {
-				return fmt.Errorf("record in URL %s is not found", r.baseUrl+id)
-			}
-			fetchingChan <- RecipeFetch{recipe: recipe, err: nil}
-			return nil
-		})
+		}
 		if err != nil {
-			cancelFunc()
 			return nil, err
 		}
 	}
