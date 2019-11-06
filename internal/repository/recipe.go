@@ -11,6 +11,8 @@ import (
 	"vutung2311-golang-test/internal/model"
 )
 
+var ErrRecordNotFound = errors.New("record not fund")
+
 type httpClient interface {
 	Get(ctx context.Context, url string) (resp *http.Response, err error)
 }
@@ -34,11 +36,28 @@ func NewRecipeRepository(baseUrl string, recipeJsonGetter httpClient, pool worke
 }
 
 type RecipeFetch struct {
-	recipe model.Recipe
+	recipe *model.Recipe
 	err    error
 }
 
-func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]model.Recipe, error) {
+func (r *RecipeRepository) FindByID(ctx context.Context, id string) (*model.Recipe, error) {
+	resp, err := r.recipeJsonGetter.Get(ctx, r.baseUrl+id)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusForbidden {
+		return nil, errors.New("bad http status code")
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, ErrRecordNotFound
+	}
+
+	var recipe model.Recipe
+	err = json.NewDecoder(resp.Body).Decode(&recipe)
+	return &recipe, err
+}
+
+func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]*model.Recipe, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	wg := new(sync.WaitGroup)
@@ -49,22 +68,16 @@ func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]mode
 		err := r.pool.AddJob(cancelCtx, func() error {
 			defer wg.Done()
 
-			resp, err := r.recipeJsonGetter.Get(cancelCtx, r.baseUrl+id)
-			if err != nil {
+			recipe, err := r.FindByID(cancelCtx, id)
+			if err != nil && !errors.Is(err, ErrRecordNotFound) {
 				cancelFunc()
-				fetchingChan <- RecipeFetch{err: err}
+				fetchingChan <- RecipeFetch{recipe: nil, err: err}
 				return nil
 			}
-			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusForbidden {
-				fetchingChan <- RecipeFetch{err: errors.New("bad http status code")}
-				return nil
+			if errors.Is(err, ErrRecordNotFound) {
+				return fmt.Errorf("record in URL %s is not found", r.baseUrl+id)
 			}
-			if resp.StatusCode == http.StatusForbidden {
-				return fmt.Errorf("got %d for URL %s", resp.StatusCode, r.baseUrl+id)
-			}
-			recipeFetch := RecipeFetch{recipe: model.Recipe{}, err: nil}
-			recipeFetch.err = json.NewDecoder(resp.Body).Decode(&recipeFetch.recipe)
-			fetchingChan <- recipeFetch
+			fetchingChan <- RecipeFetch{recipe: recipe, err: nil}
 			return nil
 		})
 		if err != nil {
@@ -75,7 +88,7 @@ func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]mode
 	wg.Wait()
 	close(fetchingChan)
 
-	result := make([]model.Recipe, 0)
+	result := make([]*model.Recipe, 0)
 	for recipeFetch := range fetchingChan {
 		if recipeFetch.err != nil {
 			return nil, recipeFetch.err

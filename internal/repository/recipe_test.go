@@ -3,7 +3,6 @@ package repository_test
 import (
 	"bytes"
 	"context"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"vutung2311-golang-test/internal/repository"
 	"vutung2311-golang-test/pkg/httpclient"
@@ -86,7 +87,7 @@ func TestRecipeRepository_FindByIDs(t *testing.T) {
 		if err != nil {
 			t.Fatal("there shouldn't be error")
 		}
-		if !strings.Contains(buf.String(), "job return error: got 403 for URL") {
+		if !strings.Contains(buf.String(), "is not found") || !strings.Contains(buf.String(), "record in URL") {
 			t.Fatal("not found recipe should be reported in the log")
 		}
 		if len(recipes) != 2 {
