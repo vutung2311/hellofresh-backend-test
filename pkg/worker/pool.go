@@ -58,6 +58,10 @@ func (p *Pool) AddJob(ctx context.Context, fn func() error) error {
 	return nil
 }
 
+func (p *Pool) IsRetryableError(err error) bool {
+	return errors.Is(err, ErrAllWorkerAreBusy)
+}
+
 func (p *Pool) Stop() {
 	p.stopped = true
 	for worker := range p.workerChan {

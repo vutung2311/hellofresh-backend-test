@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
+
 	"vutung2311-golang-test/internal/handler"
 	"vutung2311-golang-test/internal/repository"
 	"vutung2311-golang-test/pkg/httpclient"

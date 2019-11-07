@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"vutung2311-golang-test/internal/model"
-	"vutung2311-golang-test/pkg/worker"
 )
 
 var ErrRecordNotFound = errors.New("record not fund")
@@ -20,6 +19,7 @@ type httpClient interface {
 
 type workerPool interface {
 	AddJob(ctx context.Context, fn func() error) error
+	IsRetryableError(err error) bool
 }
 
 type RecipeRepository struct {
@@ -83,7 +83,7 @@ func (r *RecipeRepository) FindByIDs(ctx context.Context, ids ...string) ([]*mod
 				fetchingChan <- RecipeFetch{recipe: recipe, err: nil}
 				return nil
 			})
-			if err != worker.ErrAllWorkerAreBusy {
+			if !r.pool.IsRetryableError(err) {
 				break
 			}
 		}
