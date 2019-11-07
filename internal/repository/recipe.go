@@ -55,6 +55,7 @@ func (r *RecipeRepository) FindByID(ctx context.Context, id string) (*model.Reci
 
 	var recipe model.Recipe
 	err = json.NewDecoder(resp.Body).Decode(&recipe)
+	_ = resp.Body.Close()
 	return &recipe, err
 }
 
